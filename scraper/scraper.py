@@ -1,5 +1,9 @@
-from exceptions import MissingTagError, ParseError
+from scraper.exceptions import MissingTagError, ParseError
 import itertools
+import requests
+from datetime import datetime
+from bs4 import BeautifulSoup
+from collections import namedtuple
 
 """
 UNREVIEWED
@@ -9,6 +13,24 @@ ON_HOLD
 DROPPED
 PLAN_TO_WATCH
 """
+
+def get_anime(id_ref=1, requester=requests):
+    url = get_url_anime(id_ref)
+
+    response = requester.get(url)
+    response.raise_for_status()  # May raise
+    # TODO: Raise RequestError if 404
+
+    soup = BeautifulSoup(response.content, 'html.parser')
+    data = get_anime_data(soup)  # May raise
+
+    meta = {
+        'when': datetime.utcnow(),
+        'id_ref': id_ref,
+        'response': response,
+    }
+    Retrieved = namedtuple('Retrieved', ['meta', 'data'])
+    return Retrieved(meta, data)
 
 def get_url_anime(id):
     # Use HTTPS to avoid auto-redirect from HTTP (except for tests)
@@ -105,7 +127,6 @@ def _get_episodes(soup, data=None):
 
     return episodes_number
 
-
 def _get_airing_status(soup, data=None):
     pretag = soup.find('span', string='Status:')
     if not pretag:
@@ -121,7 +142,6 @@ def _get_airing_status(soup, data=None):
     return status
     """
     return status_text
-
 
 def _get_start_date(soup, data=None):
     pretag = soup.find('span', string='Aired:')
@@ -141,7 +161,6 @@ def _get_start_date(soup, data=None):
         raise ParseError('Unable to identify date from "%s"' % start_text)
 
     return start_date
-
 
 def _get_end_date(soup, data=None):
     pretag = soup.find('span', string='Aired:')
@@ -167,7 +186,6 @@ def _get_end_date(soup, data=None):
         raise ParseError('Unable to identify date from "%s"' % end_text)
 
     return end_date
-
 
 def _get_airing_premiere(soup, data):
     pretag = soup.find('span', string='Premiered:')
@@ -209,7 +227,7 @@ def get_anime_data(soup):
         ('image', _get_image),
         ('format', _get_format),
         ('genres', _get_genres),
-        ('summary', _get_summary),
+        # ('summary', _get_summary),
 
         # ('name_english', _get_english_name),
         # ('format', _get_format),
